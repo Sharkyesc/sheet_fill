@@ -24,38 +24,31 @@ class DocumentProcessor:
         return '\n'.join(content)
 
     def find_and_number_empty_fields_docx(self, file_path: str) -> Tuple[List[Dict[str, Any]], str]:
-        """Find all fields and write [index] into them. For non-empty cells, append [index]."""
+        """Find empty fields and write [index] into them."""
         doc = Document(file_path)
-        all_fields = []
+        empty_fields = []
         field_index = 1
 
         for table_index, table in enumerate(doc.tables):
             for row_index, row in enumerate(table.rows):
                 for col_index, cell in enumerate(row.cells):
                     cell_text = cell.text.strip()
-                    original_text = cell_text
-                    
-                    # 为每个单元格添加索引
-                    if not cell_text :
+                    if not cell_text or cell_text in ['To be filled', 'Blank', '_____', '待填写', '空白']:
                         cell.text = f"[{field_index}]"
-                    else:
-                        cell.text = f"{cell_text} [{field_index}]"
-                    
-                    all_fields.append({
-                        'index': field_index,
-                        'type': 'table_cell',
-                        'table_index': table_index,
-                        'row_index': row_index,
-                        'col_index': col_index,
-                        'text': original_text,
-                        'context': f'Table {table_index+1}, Row {row_index+1}, Col {col_index+1}',
-                        'is_empty': not original_text or original_text in ['To be filled', 'Blank', '_____', '待填写', '空白']
-                    })
-                    field_index += 1
+                        empty_fields.append({
+                            'index': field_index,
+                            'type': 'table_cell',
+                            'table_index': table_index,
+                            'row_index': row_index,
+                            'col_index': col_index,
+                            'text': cell_text,
+                            'context': f'Table {table_index+1}, Row {row_index+1}, Col {col_index+1}'
+                        })
+                        field_index += 1
 
         output_path = file_path.replace('.docx', f'_numbered_{int(time.time())}.docx')
         doc.save(output_path)
-        return all_fields, output_path
+        return empty_fields, output_path
 
     def highlight_empty_fields_docx(self, file_path: str, empty_fields: List[Dict[str, Any]]) -> str:
         doc = Document(file_path)
@@ -85,26 +78,6 @@ class DocumentProcessor:
             if file.lower().endswith('.docx')
         ]
 
-    def restore_original_content(self, file_path: str, fields_to_restore: List[Dict[str, Any]]) -> str:
-        """Restore original content for fields that don't need filling."""
-        doc = Document(file_path)
-        
-        for field in fields_to_restore:
-            try:
-                table_idx = field["table_index"]
-                row_idx = field["row_index"]
-                col_idx = field["col_index"]
-                original_content = field["original_content"]
-                
-                cell = doc.tables[table_idx].cell(row_idx, col_idx)
-                cell.text = str(original_content)
-            except Exception as e:
-                print(f"恢复单元格索引 {field.get('index')} 失败: {e}")
-        
-        output_path = file_path.replace('.docx', f'_restored_{int(time.time())}.docx')
-        doc.save(output_path)
-        return output_path
-
     def fill_document(self, file_path: str, field_answers: List[Dict[str, Any]]) -> str:
         """Fill document using field_answers that include table/row/col index."""
         from docx import Document
@@ -115,20 +88,12 @@ class DocumentProcessor:
                 table_idx = ans["table_index"]
                 row_idx = ans["row_index"]
                 col_idx = ans["col_index"]
-                
-                # 判断是填充新内容还是恢复原内容
-                if "content" in ans:
-                    # 填充新内容
-                    content = ans["content"]
-                    cell = doc.tables[table_idx].cell(row_idx, col_idx)
-                    cell.text = str(content)
-                elif "original_content" in ans:
-                    # 恢复原内容
-                    original_content = ans["original_content"]
-                    cell = doc.tables[table_idx].cell(row_idx, col_idx)
-                    cell.text = str(original_content)
+                content = ans["content"]
+
+                cell = doc.tables[table_idx].cell(row_idx, col_idx)
+                cell.text = str(content)
             except Exception as e:
-                print(f"填充单元格索引 {ans.get('index')} 失败: {e}")
+                print(f"Failed to fill cell index {ans.get('index')}: {e}")
 
         original_filename = os.path.basename(file_path)
         name_without_ext = original_filename.replace(".docx", "")

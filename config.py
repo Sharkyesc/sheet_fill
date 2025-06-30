@@ -9,6 +9,7 @@ class Config:
     # File path configuration
     INPUT_DIR = './examples'
     OUTPUT_DIR = './output'
+    MID_DIR = './mid_docs'
     TEMP_DIR = './temp'
 
     # Highlight color configuration
@@ -16,5 +17,5 @@ class Config:
 
     @classmethod
     def create_directories(cls):
-        for directory in [cls.INPUT_DIR, cls.OUTPUT_DIR, cls.TEMP_DIR]:
+        for directory in [cls.INPUT_DIR, cls.OUTPUT_DIR, cls.TEMP_DIR, cls.MID_DIR]:
             os.makedirs(directory, exist_ok=True) 

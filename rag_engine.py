@@ -16,8 +16,10 @@ class RAGEngine:
         self.index = None
         self.documents = []
         self.document_embeddings = None
-        self.index_path = os.path.join(Config.TEMP_DIR, "rag_index.pkl")
-        self.documents_path = os.path.join(Config.TEMP_DIR, "rag_documents.json")
+        
+        # 确保路径格式正确
+        self.index_path = os.path.normpath(os.path.join(Config.TEMP_DIR, "rag_index.pkl"))
+        self.documents_path = os.path.normpath(os.path.join(Config.TEMP_DIR, "rag_documents.json"))
         
         os.makedirs(Config.TEMP_DIR, exist_ok=True)
     
@@ -115,13 +117,10 @@ class RAGEngine:
             if not self._load_index():
                 return []
         
-        # 生成查询嵌入
         query_embedding = self.model.encode([query])
         
-        # 搜索相似文档
         scores, indices = self.index.search(query_embedding.astype('float32'), top_k)
         
-        # 返回相关文档
         results = []
         for i, (score, idx) in enumerate(zip(scores[0], indices[0])):
             if idx < len(self.documents):
@@ -199,16 +198,20 @@ class RAGEngine:
     def _save_index(self):
         """保存索引和文档"""
         try:
-            # 保存FAISS索引
+            os.makedirs(os.path.dirname(self.index_path), exist_ok=True)
+            
+            print(f"正在保存FAISS索引到: {self.index_path}")
             faiss.write_index(self.index, self.index_path)
             
-            # 保存文档
+            print(f"正在保存文档到: {self.documents_path}")
             with open(self.documents_path, 'w', encoding='utf-8') as f:
                 json.dump(self.documents, f, ensure_ascii=False, indent=2)
             
-            print(f"RAG索引已保存到 {Config.TEMP_DIR}")
+            print(f"✓ RAG索引已成功保存到 {Config.TEMP_DIR}")
         except Exception as e:
             print(f"保存RAG索引失败: {e}")
+            print(f"索引路径: {self.index_path}")
+            print(f"文档路径: {self.documents_path}")
     
     def _load_index(self) -> bool:
         """加载索引和文档"""

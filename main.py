@@ -87,10 +87,10 @@ class DocumentFiller:
                 ai_response = self.ai_client.analyze_empty_fields_by_index(doc_text)
                 print(f"{Fore.GREEN}✓ Text-only content analysis completed{Style.RESET_ALL}")
             
-            if not ai_response.get("fields"):
+            if not ai_response.get("fields_to_fill"):
                 print(f"{Fore.RED}AI did not return any field descriptions.{Style.RESET_ALL}")
                 return numbered_file
-            described_fields = ai_response["fields"]
+            described_fields = ai_response["fields_to_fill"]
 
             print(f"\n{Fore.CYAN}=== AI Field Analysis Results ==={Style.RESET_ALL}")
             for field in described_fields:
@@ -193,7 +193,17 @@ class DocumentFiller:
 def main():
     print(f"{Fore.CYAN}=== Intelligent Document Filler ==={Style.RESET_ALL}")
     filler = DocumentFiller()
-    filler.ai_client.update_rag_index(filler.ai_client.rag_engine.load_txt_knowledge("./examples/sample_data.txt"))
+
+    ai_client = AIClient()
+    with open("./examples/sample_data.txt", 'r', encoding='utf-8') as f:
+        full_text = f.read()
+    llm_chunks = ai_client.split_text_with_llm(full_text, max_chunk_length=300)
+    if llm_chunks and len(llm_chunks) > 0:
+        documents = [ {'id': i, 'content': chunk} for i, chunk in enumerate(llm_chunks) ]
+        filler.ai_client.update_rag_index(documents)
+    else:
+        documents = filler.ai_client.rag_engine.load_txt_knowledge("./examples/sample_data.txt")
+        filler.ai_client.update_rag_index(documents)
 
     files = filler.doc_processor.list_docx_files()
     if not files:

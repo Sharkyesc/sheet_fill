@@ -29,16 +29,15 @@ class DocumentProcessor:
         doc = Document(file_path)
         all_fields = []
         field_index = 1
-        cell_hash_to_index = {}
+        key_to_index = {}
 
         for table_index, table in enumerate(doc.tables):
             for row_index, row in enumerate(table.rows):
                 for col_index, cell in enumerate(row.cells):
-                    cell_hash = hashlib.md5(cell._tc.xml.encode('utf-8')).hexdigest()
+                    key = id(cell._tc)
                     cell_text = cell.text.strip()
-                    if cell_hash not in cell_hash_to_index:
-                        cell_hash_to_index[cell_hash] = field_index
-                        # Only write index for the first occurrence
+                    if key not in key_to_index:
+                        key_to_index[key] = field_index
                         if cell_text:
                             cell.text = f"{cell_text} [{field_index}]"
                         else:

@@ -252,11 +252,12 @@ class AIClient:
         - If the cell does NOT need to be filled (e.g., it already contains valid content or should be left as is such as row headers and column headers), return its original content (remove the [index] tag and restore the cell text).
         - If the cell SHOULD be filled (e.g., it is a placeholder, missing, or needs user input), return its index, a short description of what should be filled, and a suggested content type (e.g., text, date, number).
         - Also include standalone text lines if they are followed by a colon (:) but have no content — these also count as fields that need to be filled.
-        - For multi-row sections, please assume that every row's cells should be filled by default, don't just take the first line.
+        - For multi-row sections, please assume that every row's cells should be filled by default, don't just take the first line, but note that headers must be restored.
+        - Note that no cell can belong to both two categories.
 
         Please return a JSON object with two keys:
         {{
-          "fields": [
+          "fields_to_fill": [
             {{
               "index": 1,
               "description": "The meaning of this field, e.g., Gender",
@@ -303,3 +304,39 @@ class AIClient:
         except Exception as e:
             print(f"Error analyzing fields with images: {e}")
             return {"fields": [], "restored_cells": []}
+
+    def split_text_with_llm(self, text: str, max_chunk_length: int = 300) -> list:
+        """
+        Use LLM to split long text into semantically complete and contextually coherent chunks of appropriate length.
+        Returns: list of chunk strings
+        """
+        prompt = f"""
+        Please intelligently split the following text into several semantically complete and contextually coherent chunks. Each chunk should preferably be a complete sentence or paragraph, and the length should be appropriate (suggested: no more than {max_chunk_length} characters per chunk).
+        Output format: Only return a JSON array, each element is a string representing a chunk.
+        
+        Original text:
+        {text}
+        """
+        try:
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "You are an intelligent assistant skilled at splitting long text into semantically complete chunks."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=0.1
+            )
+            result = response.choices[0].message.content
+            print("LLM分块原始返回:", result)
+            if result.strip().startswith("```"):
+                match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", result, re.IGNORECASE)
+                if match:
+                    result = match.group(1)
+            chunks = json.loads(result)
+            if isinstance(chunks, list):
+                return [str(c).strip() for c in chunks if str(c).strip()]
+            else:
+                return []
+        except Exception as e:
+            print(f"Error in split_text_with_llm: {e}")
+            return []

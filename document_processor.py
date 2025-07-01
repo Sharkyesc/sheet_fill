@@ -25,7 +25,7 @@ class DocumentProcessor:
         return '\n'.join(content)
 
     def find_and_number_all_fields_docx(self, file_path: str) -> Tuple[List[Dict[str, Any]], str]:
-        """Adding index to all cells in the document, merged cells share the same index (using cell._tc.xml hash as unique id, stable order)."""
+        """Adding index to all cells in the document, merged cells share the same index (based on whether cell.text already has a number to determine)."""
         doc = Document(file_path)
         all_fields = []
         field_index = 1
@@ -34,26 +34,25 @@ class DocumentProcessor:
         for table_index, table in enumerate(doc.tables):
             for row_index, row in enumerate(table.rows):
                 for col_index, cell in enumerate(row.cells):
-                    key = id(cell._tc)
                     cell_text = cell.text.strip()
-                    if key not in key_to_index:
-                        key_to_index[key] = field_index
-                        if cell_text:
-                            cell.text = f"{cell_text} [{field_index}]"
-                        else:
-                            cell.text = f"[{field_index}]"
-                        all_fields.append({
-                            'index': field_index,
-                            'type': 'table_cell',
-                            'table_index': table_index,
-                            'row_index': row_index,
-                            'col_index': col_index,
-                            'text': cell_text,
-                            'context': f'Table {table_index+1}, Row {row_index+1}, Col {col_index+1}'
-                        })
-                        field_index += 1
+                    if re.search(r'\[\d+\]$', cell_text):
+                        continue
+                    key = id(cell._tc)
+                    key_to_index[key] = field_index
+                    if cell_text:
+                        cell.text = f"{cell_text} [{field_index}]"
                     else:
-                        pass
+                        cell.text = f"[{field_index}]"
+                    all_fields.append({
+                        'index': field_index,
+                        'type': 'table_cell',
+                        'table_index': table_index,
+                        'row_index': row_index,
+                        'col_index': col_index,
+                        'text': cell_text,
+                        'context': f'Table {table_index+1}, Row {row_index+1}, Col {col_index+1}'
+                    })
+                    field_index += 1
 
         base_name = os.path.splitext(os.path.basename(file_path))[0]
         output_path = os.path.join(Config.MID_DIR, f"{base_name}_numbered_{int(time.time())}.docx")

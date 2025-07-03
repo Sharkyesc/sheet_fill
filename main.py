@@ -174,6 +174,13 @@ class DocumentFiller:
             restored_file = numbered_file
             if restored_cells:
                 print(f"{Fore.YELLOW}Restoring cells that do not need to be filled...{Style.RESET_ALL}")
+                # add format info to restored cells
+                indexed_fields = {f["index"]: f for f in all_fields}
+                for cell_info in restored_cells:
+                    idx = cell_info.get("index")
+                    field = indexed_fields.get(idx)
+                    if field:
+                        cell_info["original_format"] = field.get("original_format")
                 restored_file = self.doc_processor.restore_cells_content_from_indexed_docx(numbered_file, restored_cells)
                 print(f"{Fore.GREEN}✓ Restored file saved as: {restored_file}{Style.RESET_ALL}")
 
@@ -191,6 +198,7 @@ class DocumentFiller:
                     ans["table_index"] = field["table_index"]
                     ans["row_index"] = field["row_index"]
                     ans["col_index"] = field["col_index"]
+                    ans["original_format"] = field.get("original_format")
                 filled_file = self.doc_processor.fill_document(restored_file, filled_cells)
                 print(f"{Fore.GREEN}✓ Document filled: {filled_file}{Style.RESET_ALL}")
                 self.log_resource_usage("Document Filling Complete")

@@ -213,17 +213,25 @@ class DocumentFiller:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="智能文档填写系统")
-    parser.add_argument('--knowledge', type=str, required=True, help='知识库txt文件路径')
-    parser.add_argument('--forms', type=str, nargs='+', required=True, help='需要填写的表格文件路径（支持多个，doc/docx均可）')
+    parser = argparse.ArgumentParser(description="Intelligent Sheet Filling System")
+    parser.add_argument('--knowledge', type=str, required=True, help='Knowledge file path')
+    parser.add_argument('--forms', type=str, nargs='+', required=True, help='Form file path (support multiple, doc/docx/xls)')
     args = parser.parse_args()
+
+    if not os.path.exists(args.knowledge):
+        print(f"{Fore.RED}Knowledge file not found: {args.knowledge}{Style.RESET_ALL}")
+        return
+    
+    for f in args.forms:
+        if not os.path.exists(f):
+            print(f"{Fore.RED}Form file not found: {f}{Style.RESET_ALL}")
+            return
 
     print(f"{Fore.CYAN}=== Intelligent Document Filler ==={Style.RESET_ALL}")
     filler = DocumentFiller()
     filler.log_resource_usage("System Initialization Complete")
 
     ai_client = AIClient()
-    # 读取知识文件
     with open(args.knowledge, 'r', encoding='utf-8') as f:
         full_text = f.read()
     llm_chunks = ai_client.split_text_with_llm(full_text, max_chunk_length=300)
@@ -236,10 +244,13 @@ def main():
     filler.log_resource_usage("RAG Index Building Complete")
 
     files = args.forms
-    if not files:
-        print(f"{Fore.YELLOW}未指定需要填写的表格文件{Style.RESET_ALL}")
-        return
-    for f in files:
+    for i, f in enumerate(files):
+        ext = os.path.splitext(f)[1].lower()
+        if ext == '.doc':
+            docx_path = f + 'x' if not f.endswith('.docx') else f
+            print(f"{Fore.YELLOW}Converting {f} to {docx_path}{Style.RESET_ALL}")
+            f = filler.doc_processor.convert_doc_to_docx(f, docx_path)
+            files[i] = f
         filler.process_document(f)
         filler.log_resource_usage("Single Document Processing Complete")
     
@@ -247,7 +258,6 @@ def main():
     filler.log_resource_usage("All Processing Complete")
     print(f"{Fore.CYAN}All output has been saved to: {log_file_path}{Style.RESET_ALL}")
     
-    # Restore stdout
     sys.stdout = logger.terminal
 
 if __name__ == "__main__":

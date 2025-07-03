@@ -6,6 +6,8 @@ from docx import Document
 from docx.oxml.shared import OxmlElement, qn
 from config import Config
 import hashlib
+import subprocess
+import shutil
 
 class DocumentProcessor:
     def __init__(self):
@@ -137,4 +139,14 @@ class DocumentProcessor:
         output_path = os.path.join(Config.MID_DIR, f"{base_name}_restored_{int(time.time())}.docx")
         doc.save(output_path)
         return output_path
+
+    def convert_doc_to_docx(self, doc_path, docx_path):
+        """Convert doc to docx using libreoffice"""
+        output_dir = os.path.dirname(docx_path)
+        subprocess.run(['C:\Program Files\LibreOffice\program\soffice.exe', '--headless', '--convert-to', 'docx', doc_path, '--outdir', output_dir], check=True)
+        base = os.path.splitext(os.path.basename(doc_path))[0]
+        generated_docx = os.path.join(output_dir, base + '.docx')
+        if generated_docx != docx_path:
+            shutil.move(generated_docx, docx_path)
+        return docx_path
 

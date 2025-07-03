@@ -1,6 +1,8 @@
 import os
 import sys
 import time
+import psutil
+import argparse
 from typing import List, Dict, Any
 from colorama import init, Fore, Style
 
@@ -56,8 +58,20 @@ class DocumentFiller:
         rag_stats = self.ai_client.get_rag_stats()
         print(f"{Fore.CYAN}RAG engine status: {rag_stats['status']}{Style.RESET_ALL}")
 
+    def log_resource_usage(self, stage: str = ""):
+        """Log current process resource usage"""
+        try:
+            cpu_percent = psutil.cpu_percent(interval=0.1)
+            mem = psutil.virtual_memory()
+            
+            stage_info = f" [{stage}]" if stage else ""
+            print(f"{Fore.MAGENTA}[Resource Monitor{stage_info}] CPU: {cpu_percent:.2f}% | Memory: {mem.percent:.2f}%{Style.RESET_ALL}")
+        except Exception as e:
+            print(f"{Fore.RED}[Resource Monitor] Failed to get resource info: {e}{Style.RESET_ALL}")
+
     def process_document(self, file_path: str) -> str:
         print(f"\n{Fore.CYAN}Start processing document: {file_path}{Style.RESET_ALL}")
+        self.log_resource_usage("Start Processing Document")
         try:
             print(f"{Fore.YELLOW}Step 1: Number all fields in the document...{Style.RESET_ALL}")
             all_fields, numbered_file = self.doc_processor.find_and_number_all_fields_docx(file_path)
@@ -65,6 +79,7 @@ class DocumentFiller:
                 print(f"{Fore.RED}No fields found in the document.{Style.RESET_ALL}")
                 return file_path
             print(f"{Fore.GREEN}Found {len(all_fields)} fields in the document{Style.RESET_ALL}")
+            self.log_resource_usage("Field Numbering Complete")
 
             print(f"{Fore.YELLOW}Step 2: Convert document to PDF and generate page screenshots...{Style.RESET_ALL}")
             try:
@@ -72,6 +87,7 @@ class DocumentFiller:
                 page_images = pdf_result['page_images']
                 pdf_path = pdf_result['pdf_path']
                 print(f"{Fore.GREEN}✓ PDF conversion and screenshots completed, total {len(page_images)} pages{Style.RESET_ALL}")
+                self.log_resource_usage("PDF Conversion Complete")
             except Exception as e:
                 print(f"{Fore.RED}PDF processing failed: {e}, will use text-only analysis{Style.RESET_ALL}")
                 page_images = []
@@ -83,9 +99,11 @@ class DocumentFiller:
             if page_images:
                 ai_response = self.ai_client.analyze_empty_fields_with_images(doc_text, page_images)
                 print(f"{Fore.GREEN}✓ Analysis with images and text content completed{Style.RESET_ALL}")
+                self.log_resource_usage("AI Image Analysis Complete")
             else:
                 ai_response = self.ai_client.analyze_empty_fields_by_index(doc_text)
                 print(f"{Fore.GREEN}✓ Text-only content analysis completed{Style.RESET_ALL}")
+                self.log_resource_usage("AI Text Analysis Complete")
             
             if not ai_response.get("fields_to_fill"):
                 print(f"{Fore.RED}AI did not return any field descriptions.{Style.RESET_ALL}")
@@ -120,11 +138,13 @@ class DocumentFiller:
                     print(f"{Fore.RED}✗ No RAG matches found{Style.RESET_ALL}")
             
             print(f"\n{Fore.GREEN}✓ RAG evidence added to all described fields{Style.RESET_ALL}")
+            self.log_resource_usage("RAG Search Complete")
 
             print(f"{Fore.YELLOW}Step 5: AI makes final fill/restore decision...{Style.RESET_ALL}")
             final_decision = self.ai_client.final_fill_decision(all_fields, described_fields)
             filled_cells = final_decision.get("filled_cells", [])
             restored_cells = final_decision.get("restored_cells", [])
+            self.log_resource_usage("AI Decision Complete")
             
             # Print detailed decision results
             print(f"\n{Fore.CYAN}=== AI Decision Results ==={Style.RESET_ALL}")
@@ -173,6 +193,7 @@ class DocumentFiller:
                     ans["col_index"] = field["col_index"]
                 filled_file = self.doc_processor.fill_document(restored_file, filled_cells)
                 print(f"{Fore.GREEN}✓ Document filled: {filled_file}{Style.RESET_ALL}")
+                self.log_resource_usage("Document Filling Complete")
                 
                 # Clean up temporary files
                 if pdf_path:
@@ -183,6 +204,7 @@ class DocumentFiller:
                 # Clean up temporary files
                 if pdf_path:
                     self.pdf_processor.cleanup_temp_files(pdf_path)
+                self.log_resource_usage("Document Processing Complete")
                 return restored_file
                 
         except Exception as e:
@@ -191,28 +213,38 @@ class DocumentFiller:
 
 
 def main():
+    parser = argparse.ArgumentParser(description="智能文档填写系统")
+    parser.add_argument('--knowledge', type=str, required=True, help='知识库txt文件路径')
+    parser.add_argument('--forms', type=str, nargs='+', required=True, help='需要填写的表格文件路径（支持多个，doc/docx均可）')
+    args = parser.parse_args()
+
     print(f"{Fore.CYAN}=== Intelligent Document Filler ==={Style.RESET_ALL}")
     filler = DocumentFiller()
+    filler.log_resource_usage("System Initialization Complete")
 
     ai_client = AIClient()
-    with open("./examples/sample_data.txt", 'r', encoding='utf-8') as f:
+    # 读取知识文件
+    with open(args.knowledge, 'r', encoding='utf-8') as f:
         full_text = f.read()
     llm_chunks = ai_client.split_text_with_llm(full_text, max_chunk_length=300)
     if llm_chunks and len(llm_chunks) > 0:
         documents = [ {'id': i, 'content': chunk} for i, chunk in enumerate(llm_chunks) ]
         filler.ai_client.update_rag_index(documents)
     else:
-        documents = filler.ai_client.rag_engine.load_txt_knowledge("./examples/sample_data.txt")
+        documents = filler.ai_client.rag_engine.load_txt_knowledge(args.knowledge)
         filler.ai_client.update_rag_index(documents)
+    filler.log_resource_usage("RAG Index Building Complete")
 
-    files = filler.doc_processor.list_docx_files()
+    files = args.forms
     if not files:
-        print(f"{Fore.YELLOW}No .docx files found in {Config.INPUT_DIR}{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}未指定需要填写的表格文件{Style.RESET_ALL}")
         return
     for f in files:
         filler.process_document(f)
+        filler.log_resource_usage("Single Document Processing Complete")
     
     print(f"\n{Fore.GREEN}=== Processing Complete ==={Style.RESET_ALL}")
+    filler.log_resource_usage("All Processing Complete")
     print(f"{Fore.CYAN}All output has been saved to: {log_file_path}{Style.RESET_ALL}")
     
     # Restore stdout

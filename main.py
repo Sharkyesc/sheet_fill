@@ -279,11 +279,14 @@ def main():
             documents = filler.ai_client.rag_engine.load_txt_knowledge(args.knowledge)
             filler.ai_client.update_rag_index(documents)
 
-    files = filler.doc_processor.list_docx_files()
-    if not files:
-        print(f"{Fore.YELLOW}No .docx files found in {Config.INPUT_DIR}{Style.RESET_ALL}")
-        return
-    for f in files:
+    files = args.forms
+    for i, f in enumerate(files):
+        ext = os.path.splitext(f)[1].lower()
+        if ext == '.doc':
+            docx_path = f + 'x' if not f.endswith('.docx') else f
+            print(f"{Fore.YELLOW}Converting {f} to {docx_path}{Style.RESET_ALL}")
+            f = filler.doc_processor.convert_doc_to_docx(f, docx_path)
+            files[i] = f
         filler.process_document(f)
     
     print(f"\n{Fore.GREEN}=== Processing Complete ==={Style.RESET_ALL}")

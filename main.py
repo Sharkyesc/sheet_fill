@@ -162,7 +162,6 @@ class DocumentFiller:
 
             restored_file = numbered_file
             if restored_cells:
-                # TODO:
                 print(f"{Fore.YELLOW}Step 6: Restoring {len(restored_cells)} cells...{Style.RESET_ALL}")
                 indexed_fields = {f["index"]: f for f in all_fields}
                 for cell_info in restored_cells:
@@ -176,18 +175,31 @@ class DocumentFiller:
 
             if filled_cells:
                 print(f"{Fore.YELLOW}Filling cells with AI-generated content...{Style.RESET_ALL}")
-                # Map index to field position
+                # 根据文件类型准备填充数据
+                file_ext = os.path.splitext(file_path)[1].lower()
                 indexed_fields = {f["index"]: f for f in all_fields}
+                
                 for ans in filled_cells:
                     idx = ans["index"]
                     field = indexed_fields.get(idx)
                     if not field:
                         print(f"{Fore.YELLOW}Warning: index {idx} not found in all_fields{Style.RESET_ALL}")
                         continue
-                    ans["table_index"] = field["table_index"]
-                    ans["row_index"] = field["row_index"]
-                    ans["col_index"] = field["col_index"]
+                    
+                    # 为不同文件类型设置不同的字段信息
+                    if file_ext == '.docx':
+                        # Word文档字段映射
+                        ans["table_index"] = field["table_index"]
+                        ans["row_index"] = field["row_index"]
+                        ans["col_index"] = field["col_index"]
+                    elif file_ext in ['.xlsx', '.xls']:
+                        # Excel文档字段映射
+                        ans["sheet_name"] = field["sheet_name"]
+                        ans["row_index"] = field["row_index"]
+                        ans["col_index"] = field["col_index"]
+                    
                     ans["original_format"] = field.get("original_format")
+                
                 filled_file = self.doc_processor.fill_document(restored_file, filled_cells)
                 print(f"{Fore.GREEN}✓ Document filled: {filled_file}{Style.RESET_ALL}")
                 
@@ -226,7 +238,7 @@ def main():
     parser = argparse.ArgumentParser(description="Intelligent Sheet Filling System")
     parser.add_argument('--knowledge', type=str, help='Knowledge file path (single text file)')
     parser.add_argument('--knowledge-files', type=str, nargs='+', help='Knowledge files path (support multiple files: txt/doc/docx/pdf)')
-    parser.add_argument('--forms', type=str, nargs='+', required=True, help='Form file path (support multiple, doc/docx/xls)')
+    parser.add_argument('--forms', type=str, nargs='+', required=True, help='Form file path (support multiple files: .docx/.xlsx/.xls/.doc)')
     parser.add_argument('--no-monitor', action='store_true', help='Disable system monitoring')
     parser.add_argument('--monitor-interval', type=int, default=100, help='Monitoring interval in ms (default: 100)')
     args = parser.parse_args()
@@ -283,10 +295,18 @@ def main():
     for i, f in enumerate(files):
         ext = os.path.splitext(f)[1].lower()
         if ext == '.doc':
+            # 将.doc转换为.docx
             docx_path = f + 'x' if not f.endswith('.docx') else f
             print(f"{Fore.YELLOW}Converting {f} to {docx_path}{Style.RESET_ALL}")
             f = filler.doc_processor.convert_doc_to_docx(f, docx_path)
             files[i] = f
+        elif ext in ['.xls', '.xlsx', '.docx']:
+            # 支持的格式，直接处理
+            print(f"{Fore.CYAN}Processing {ext.upper()} file: {os.path.basename(f)}{Style.RESET_ALL}")
+        else:
+            print(f"{Fore.YELLOW}Warning: Unsupported file format {ext} for file: {f}{Style.RESET_ALL}")
+            continue
+        
         filler.process_document(f)
     
     print(f"\n{Fore.GREEN}=== Processing Complete ==={Style.RESET_ALL}")

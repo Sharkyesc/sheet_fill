@@ -10,6 +10,8 @@ This project is an AI-powered system for automatically filling in tables in Word
 - **RAG-based retrieval from a plain text knowledge base (txt file)**
 - **Automatic content generation and filling of tables**
 - **Support for both horizontal and vertical (label-value) table formats**
+- **Real-time system resource monitoring (CPU, Memory, Disk)**
+- **Automatic generation of monitoring charts and reports**
 - **No database required**
 
 ## Directory Structure
@@ -20,12 +22,15 @@ project_root/
 ├── ai_client.py
 ├── document_processor.py
 ├── pdf_processor.py          # PDF processing and screenshot functionality
+├── monitor.py               # System resource monitoring
+├── test_monitor.py          # Monitor testing script
 ├── config.py
 ├── requirements.txt
 ├── examples/
 │   ├── sample_data.txt 
 │   └── sample.docx 
 ├── temp/                    # Temporary files directory (PDFs, images, etc.)
+├── monitor_output/          # Monitoring data and charts
 └── ...
 ```
 
@@ -43,17 +48,30 @@ pip install -r requirements.txt
 
 ### 3. Run the System
 ```bash
-python main.py
+# 基本用法
+python main.py --knowledge examples/sample_data.txt --forms examples/sample.docx
+
+# 禁用监控
+python main.py --knowledge examples/sample_data.txt --forms examples/sample.docx --no-monitor
+
+# 自定义监控间隔（秒）
+python main.py --knowledge examples/sample_data.txt --forms examples/sample.docx --monitor-interval 10
+
+# 测试监控功能
+python test_monitor.py
 ```
 
 ### 4. Output
 - The system will automatically:
   - Build a RAG index from your txt file
+  - **Start monitoring system resources when document processing begins**
   - Detect blank fields in your document
   - Convert document to PDF and generate page screenshots
   - Use the LLM with both images and text content for field analysis
   - Use the LLM and RAG to generate the best fill content
   - Save the filled document as `sample_filled.docx` in the same directory
+  - **Stop monitoring and generate charts when processing completes**
+  - **Save monitoring data and charts to `monitor_output/` directory**
 
 ## Configuration
 - By default, the system looks for `examples/sample_data.txt` as the knowledge base and processes all `.docx`/`.xlsx` files in the `examples/` directory.
@@ -89,6 +107,26 @@ python main.py
 - The system uses sentence-transformers and FAISS for semantic retrieval.
 - The LLM (e.g., OpenAI GPT) is used for both field analysis and content generation.
 - Multi-modal analysis combines document images with text for better understanding.
+
+## System Monitoring
+The system includes a comprehensive monitoring module that tracks:
+- **CPU Usage**: Real-time CPU utilization percentage
+- **Memory Usage**: Memory consumption in MB and percentage
+- **Disk Usage**: Disk space utilization percentage
+- **Network I/O**: Network bytes sent/received and packet counts
+
+### Monitoring Features:
+- **Real-time monitoring**: Collects data at configurable intervals (default: 5 seconds)
+- **Automatic start/stop**: Monitoring starts when document processing begins and stops when processing completes
+- **Data persistence**: Saves monitoring data to JSON files
+- **Chart generation**: Creates comprehensive charts showing resource usage over time
+- **Thread-safe**: Uses threading for non-blocking data collection
+- **Configurable**: Adjustable monitoring interval and maximum record count
+
+### Monitoring Output:
+- **Data files**: `monitor_output/monitor_data_YYYYMMDD_HHMMSS.json`
+- **Chart files**: `monitor_output/monitor_charts_YYYYMMDD_HHMMSS.png`
+- **Summary reports**: Printed to console with statistics and averages
 
 ## Troubleshooting
 - If the system does not fill fields as expected, try making your txt knowledge base more explicit (e.g., use more key-value lines).

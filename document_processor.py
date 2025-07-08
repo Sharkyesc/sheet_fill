@@ -311,6 +311,29 @@ class DocumentProcessor:
         doc.save(output_path)
         return output_path
 
+    def to_cmd_path(self, path):
+        return os.path.normpath(path).replace('\\', '/')
+
+    def convert_doc_to_docx(self, doc_path, docx_path):
+        """Convert doc to docx using libreoffice"""
+        output_dir = os.path.dirname(docx_path)
+        doc_path_cmd = self.to_cmd_path(doc_path)
+        docx_path_cmd = self.to_cmd_path(docx_path)
+        output_dir_cmd = self.to_cmd_path(output_dir)
+        soffice_path = self.to_cmd_path(os.path.join('C:', 'Program Files', 'LibreOffice', 'program', 'soffice.exe'))
+        subprocess.run([
+            soffice_path,
+            '--headless',
+            '--convert-to', 'docx',
+            doc_path_cmd,
+            '--outdir', output_dir_cmd
+        ], check=True)
+        base = os.path.splitext(os.path.basename(doc_path))[0]
+        generated_docx = os.path.join(output_dir, base + '.docx')
+        generated_docx = self.to_cmd_path(generated_docx)
+        if generated_docx != docx_path_cmd:
+            shutil.move(generated_docx, docx_path_cmd)
+        return docx_path_cmd
     def restore_cells_content_from_indexed_excel(self, file_path: str, restored_cells: List[Dict[str, Any]]) -> str:
         """恢复Excel文档单元格内容"""
         wb = openpyxl.load_workbook(file_path)

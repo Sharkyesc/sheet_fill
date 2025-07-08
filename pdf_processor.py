@@ -19,23 +19,31 @@ class PDFProcessor:
         self.temp_dir = Config.TEMP_DIR
         os.makedirs(self.temp_dir, exist_ok=True)
 
+    def to_cmd_path(self, path):
+        return os.path.normpath(path).replace('\\', '/')
+
     def docx_to_pdf(self, docx_path: str) -> str:
         """Convert docx file to PDF using LibreOffice"""
         base_name = os.path.splitext(os.path.basename(docx_path))[0]
         pdf_path = os.path.join(self.temp_dir, f"{base_name}_{int(time.time())}.pdf")
+        pdf_path = self.to_cmd_path(pdf_path)
+        docx_path_cmd = self.to_cmd_path(docx_path)
+        temp_dir_cmd = self.to_cmd_path(self.temp_dir)
+        soffice_path = self.to_cmd_path(os.path.join('C:', 'Program Files', 'LibreOffice', 'program', 'soffice.exe'))
         
         print(f"Converting {docx_path} to PDF using LibreOffice...")
         
         try:
             subprocess.run([
-                r'C:\Program Files\LibreOffice\program\soffice.exe', 
-                '--headless', 
-                '--convert-to', 'pdf', 
-                docx_path, 
-                '--outdir', self.temp_dir
+                soffice_path,
+                '--headless',
+                '--convert-to', 'pdf',
+                docx_path_cmd,
+                '--outdir', temp_dir_cmd
             ], check=True)
             
             generated_pdf = os.path.join(self.temp_dir, f"{base_name}.pdf")
+            generated_pdf = self.to_cmd_path(generated_pdf)
             if os.path.exists(generated_pdf):
                 shutil.move(generated_pdf, pdf_path)
                 print(f"PDF conversion completed: {pdf_path}")

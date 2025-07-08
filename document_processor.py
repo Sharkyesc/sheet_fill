@@ -8,6 +8,8 @@ import openpyxl
 from openpyxl.styles import PatternFill
 from openpyxl.cell import MergedCell
 from config import Config
+import subprocess
+import shutil
 
 class DocumentProcessor:
     def __init__(self):
@@ -334,6 +336,7 @@ class DocumentProcessor:
         if generated_docx != docx_path_cmd:
             shutil.move(generated_docx, docx_path_cmd)
         return docx_path_cmd
+    
     def restore_cells_content_from_indexed_excel(self, file_path: str, restored_cells: List[Dict[str, Any]]) -> str:
         """恢复Excel文档单元格内容"""
         wb = openpyxl.load_workbook(file_path)

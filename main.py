@@ -60,7 +60,8 @@ class DocumentFiller:
         print(f"\n{Fore.CYAN}Start processing document: {file_path}{Style.RESET_ALL}")
         try:
             print(f"{Fore.YELLOW}Step 1: Number all fields in the document...{Style.RESET_ALL}")
-            all_fields, numbered_file = self.doc_processor.find_and_number_all_fields_docx(file_path)
+            # 使用统一的字段标记接口
+            all_fields, numbered_file = self.doc_processor.find_and_number_all_fields(file_path)
             if not all_fields:
                 print(f"{Fore.RED}No fields found in the document.{Style.RESET_ALL}")
                 return file_path
@@ -68,7 +69,7 @@ class DocumentFiller:
 
             print(f"{Fore.YELLOW}Step 2: Convert document to PDF and generate page screenshots...{Style.RESET_ALL}")
             try:
-                pdf_result = self.pdf_processor.process_document_with_images(file_path)
+                pdf_result = self.pdf_processor.process_document_with_images(numbered_file)
                 page_images = pdf_result['page_images']
                 pdf_path = pdf_result['pdf_path']
                 print(f"{Fore.GREEN}✓ PDF conversion and screenshots completed, total {len(page_images)} pages{Style.RESET_ALL}")
@@ -153,45 +154,52 @@ class DocumentFiller:
             # Restore cells first
             restored_file = numbered_file
             if restored_cells:
-                print(f"{Fore.YELLOW}Restoring cells that do not need to be filled...{Style.RESET_ALL}")
-                restored_file = self.doc_processor.restore_cells_content_from_indexed_docx(numbered_file, restored_cells)
-                print(f"{Fore.GREEN}✓ Restored file saved as: {restored_file}{Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}Step 6: Restoring {len(restored_cells)} cells...{Style.RESET_ALL}")
+                # 使用统一的恢复接口
+                restored_file = self.doc_processor.restore_cells_content_from_indexed(numbered_file, restored_cells)
+                print(f"{Fore.GREEN}✓ Cells restored: {restored_file}{Style.RESET_ALL}")
 
             # Fill cells
             if filled_cells:
-                print(f"{Fore.YELLOW}Filling cells with AI-generated content...{Style.RESET_ALL}")
-                # Map index to field position
-                indexed_fields = {f["index"]: f for f in all_fields}
-                for ans in filled_cells:
-                    idx = ans["index"]
-                    field = indexed_fields.get(idx)
-                    if not field:
-                        print(f"{Fore.YELLOW}Warning: index {idx} not found in all_fields{Style.RESET_ALL}")
-                        continue
-                    ans["table_index"] = field["table_index"]
-                    ans["row_index"] = field["row_index"]
-                    ans["col_index"] = field["col_index"]
-                filled_file = self.doc_processor.fill_document(restored_file, filled_cells)
-                print(f"{Fore.GREEN}✓ Document filled: {filled_file}{Style.RESET_ALL}")
+                print(f"{Fore.YELLOW}Step 7: Filling {len(filled_cells)} cells...{Style.RESET_ALL}")
                 
-                # Clean up temporary files
-                if pdf_path:
-                    self.pdf_processor.cleanup_temp_files(pdf_path)
+                # 根据文件类型准备填充数据
+                file_ext = os.path.splitext(file_path)[1].lower()
+                field_answers = []
                 
+                for cell in filled_cells:
+                    field_data = next((f for f in all_fields if f['index'] == cell['index']), None)
+                    if field_data:
+                        if file_ext == '.docx':
+                            field_answers.append({
+                                'index': cell['index'],
+                                'content': cell['content'],
+                                'table_index': field_data['table_index'],
+                                'row_index': field_data['row_index'],
+                                'col_index': field_data['col_index']
+                            })
+                        elif file_ext in ['.xlsx', '.xls']:
+                            field_answers.append({
+                                'index': cell['index'],
+                                'content': cell['content'],
+                                'sheet_name': field_data['sheet_name'],
+                                'row_index': field_data['row_index'],
+                                'col_index': field_data['col_index']
+                            })
+                
+                filled_file = self.doc_processor.fill_document(restored_file, field_answers)
+                print(f"{Fore.GREEN}✓ Document filled and saved: {filled_file}{Style.RESET_ALL}")
                 return filled_file
             else:
-                # Clean up temporary files
-                if pdf_path:
-                    self.pdf_processor.cleanup_temp_files(pdf_path)
+                print(f"{Fore.BLUE}No cells need to be filled, returning restored file: {restored_file}{Style.RESET_ALL}")
                 return restored_file
                 
         except Exception as e:
             print(f"{Fore.RED}Error: {e}{Style.RESET_ALL}")
             return file_path
 
-
 def main():
-    print(f"{Fore.CYAN}=== Intelligent Document Filler ==={Style.RESET_ALL}")
+    print(f"{Fore.CYAN}=== Intelligent Document Filler (Word & Excel Support) ==={Style.RESET_ALL}")
     filler = DocumentFiller()
 
     ai_client = AIClient()
@@ -205,10 +213,17 @@ def main():
         documents = filler.ai_client.rag_engine.load_txt_knowledge("./examples/sample_data.txt")
         filler.ai_client.update_rag_index(documents)
 
-    files = filler.doc_processor.list_docx_files()
+    # 使用新的文档列表方法
+    files = filler.doc_processor.list_document_files()
     if not files:
-        print(f"{Fore.YELLOW}No .docx files found in {Config.INPUT_DIR}{Style.RESET_ALL}")
+        print(f"{Fore.YELLOW}No supported document files (.docx, .xlsx, .xls) found in {Config.INPUT_DIR}{Style.RESET_ALL}")
         return
+    
+    print(f"{Fore.GREEN}Found {len(files)} document(s) to process:{Style.RESET_ALL}")
+    for f in files:
+        file_type = "Word" if f.endswith('.docx') else "Excel"
+        print(f"  - {os.path.basename(f)} ({file_type})")
+    
     for f in files:
         filler.process_document(f)
     

@@ -14,9 +14,7 @@ class DocumentProcessor:
         self.highlight_color = Config.HIGHLIGHT_COLOR
 
     def extract_document_content(self, file_path: str) -> str:
-        """提取文档内容，支持Word和Excel"""
         file_ext = os.path.splitext(file_path)[1].lower()
-        
         if file_ext == '.docx':
             return self._extract_docx_content(file_path)
         elif file_ext in ['.xlsx', '.xls']:
@@ -25,7 +23,6 @@ class DocumentProcessor:
             raise ValueError(f"Unsupported file format: {file_ext}")
 
     def _extract_docx_content(self, file_path: str) -> str:
-        """提取Word文档内容"""
         doc = Document(file_path)
         content = []
         for table in doc.tables:
@@ -37,10 +34,8 @@ class DocumentProcessor:
         return '\n'.join(content)
 
     def _extract_excel_content(self, file_path: str) -> str:
-        """提取Excel文档内容"""
         wb = openpyxl.load_workbook(file_path)
         content = []
-        
         for sheet_name in wb.sheetnames:
             ws = wb[sheet_name]
             content.append(f"=== Sheet: {sheet_name} ===")
@@ -48,12 +43,70 @@ class DocumentProcessor:
             for row in ws.iter_rows():
                 row_content = []
                 for cell in row:
-                    cell_value = str(cell.value) if cell.value is not None else ""
-                    row_content.append(cell_value.strip())
+                    row_content.append(str(cell.value).strip())
                 content.append(' | '.join(row_content))
-        
         wb.close()
         return '\n'.join(content)
+
+    def _save_cell_format(self, cell):
+        """Saving cell formatting information"""
+        format_info = {
+            'paragraphs': []
+        }
+        
+        for paragraph in cell.paragraphs:
+            para_format = {
+                'alignment': paragraph.alignment,
+                'runs': []
+            }
+            
+            for run in paragraph.runs:
+                run_format = {
+                    'text': run.text,
+                    'bold': run.bold,
+                    'italic': run.italic,
+                    'underline': run.underline,
+                    'font_name': run.font.name,
+                    'font_size': run.font.size,
+                    'font_color': run.font.color.rgb if run.font.color.rgb else None
+                }
+                para_format['runs'].append(run_format)
+            
+            format_info['paragraphs'].append(para_format)
+        
+        return format_info
+
+    def _apply_cell_format(self, cell, format_info, new_text):
+        """Apply saved formatting to cells"""
+        for paragraph in cell.paragraphs:
+            for run in paragraph.runs:
+                run.text = ""
+        
+        if not cell.paragraphs:
+            cell.add_paragraph()
+        
+        if format_info['paragraphs']:
+            para_format = format_info['paragraphs'][0]
+            paragraph = cell.paragraphs[0]
+            paragraph.alignment = para_format['alignment']
+            
+            if para_format['runs']:
+                run_format = para_format['runs'][0]
+                run = paragraph.runs[0] if paragraph.runs else paragraph.add_run()
+                run.text = new_text
+                run.bold = run_format['bold']
+                run.italic = run_format['italic']
+                run.underline = run_format['underline']
+                if run_format['font_name']:
+                    run.font.name = run_format['font_name']
+                if run_format['font_size']:
+                    run.font.size = run_format['font_size']
+                if run_format['font_color']:
+                    run.font.color.rgb = run_format['font_color']
+            else:
+                paragraph.text = new_text
+        else:
+            cell.paragraphs[0].text = new_text
 
     def find_and_number_all_fields_docx(self, file_path: str) -> Tuple[List[Dict[str, Any]], str]:
         """为Word文档所有字段添加索引"""
@@ -68,12 +121,19 @@ class DocumentProcessor:
                     cell_text = cell.text.strip()
                     if re.search(r'\[\d+\]$', cell_text):
                         continue
+                    
+                    original_format = self._save_cell_format(cell)
+                    
                     key = id(cell._tc)
                     key_to_index[key] = field_index
+                    
                     if cell_text:
-                        cell.text = f"{cell_text} [{field_index}]"
+                        new_text = f"{cell_text} [{field_index}]"
                     else:
-                        cell.text = f"[{field_index}]"
+                        new_text = f"[{field_index}]"
+                    
+                    self._apply_cell_format(cell, original_format, new_text)
+                    
                     all_fields.append({
                         'index': field_index,
                         'type': 'table_cell',
@@ -81,6 +141,7 @@ class DocumentProcessor:
                         'row_index': row_index,
                         'col_index': col_index,
                         'text': cell_text,
+                        'original_format': original_format,
                         'context': f'Table {table_index+1}, Row {row_index+1}, Col {col_index+1}'
                     })
                     field_index += 1
@@ -142,7 +203,6 @@ class DocumentProcessor:
         return all_fields, output_path
 
     def find_and_number_all_fields(self, file_path: str) -> Tuple[List[Dict[str, Any]], str]:
-        """统一的字段标记接口，自动识别文件类型"""
         file_ext = os.path.splitext(file_path)[1].lower()
         
         if file_ext == '.docx':
@@ -152,76 +212,8 @@ class DocumentProcessor:
         else:
             raise ValueError(f"Unsupported file format: {file_ext}")
 
-    def highlight_empty_fields_docx(self, file_path: str, empty_fields: List[Dict[str, Any]]) -> str:
-        """Word文档字段高亮"""
-        doc = Document(file_path)
-        for field in empty_fields:
-            if field['type'] == 'table_cell':
-                table = doc.tables[field['table_index']]
-                cell = table.cell(field['row_index'], field['col_index'])
-                cell._tc.get_or_add_tcPr().append(self._create_shading_element())
-        base_name = os.path.splitext(os.path.basename(file_path))[0]
-        output_path = os.path.join(Config.MID_DIR, f"{base_name}_highlighted_{int(time.time())}.docx")
-        doc.save(output_path)
-        return output_path
-
-    def highlight_empty_fields_excel(self, file_path: str, empty_fields: List[Dict[str, Any]]) -> str:
-        """Excel文档字段高亮"""
-        wb = openpyxl.load_workbook(file_path)
-        yellow_fill = PatternFill(start_color='FFFF00', end_color='FFFF00', fill_type='solid')
-        
-        for field in empty_fields:
-            if field['type'] == 'excel_cell':
-                try:
-                    ws = wb[field['sheet_name']]
-                    cell = ws.cell(row=field['row_index'], column=field['col_index'])
-                    
-                    # 跳过合并单元格
-                    if isinstance(cell, MergedCell):
-                        print(f"Warning: Cannot highlight merged cell at Row {field['row_index']}, Col {field['col_index']}")
-                        continue
-                        
-                    cell.fill = yellow_fill
-                except Exception as e:
-                    print(f"Warning: Cannot highlight cell: {e}")
-                    continue
-                
-        base_name = os.path.splitext(os.path.basename(file_path))[0]
-        output_path = os.path.join(Config.MID_DIR, f"{base_name}_highlighted_{int(time.time())}.xlsx")
-        wb.save(output_path)
-        wb.close()
-        return output_path
-
-    def _create_shading_element(self):
-        """Word单元格黄色背景着色元素"""
-        shading = OxmlElement('w:shd')
-        shading.set(qn('w:fill'), 'FFFF00')
-        return shading
-
-    def list_document_files(self) -> List[str]:
-        """列出输入目录中的所有文档文件（Word和Excel）"""
-        input_dir = Config.INPUT_DIR
-        if not os.path.exists(input_dir):
-            return []
-        
-        supported_extensions = ['.docx', '.xlsx', '.xls']
-        files = []
-        
-        for file in os.listdir(input_dir):
-            file_ext = os.path.splitext(file)[1].lower()
-            if file_ext in supported_extensions:
-                files.append(os.path.join(input_dir, file))
-        
-        return files
-
-    def list_docx_files(self) -> List[str]:
-        """保持向后兼容性的方法"""
-        return [f for f in self.list_document_files() if f.endswith('.docx')]
-
     def fill_document(self, file_path: str, field_answers: List[Dict[str, Any]]) -> str:
-        """填充文档，支持Word和Excel"""
         file_ext = os.path.splitext(file_path)[1].lower()
-        
         if file_ext == '.docx':
             return self._fill_docx_document(file_path, field_answers)
         elif file_ext in ['.xlsx', '.xls']:
@@ -240,7 +232,12 @@ class DocumentProcessor:
                 col_idx = ans["col_index"]
                 content = ans["content"]
                 cell = doc.tables[table_idx].cell(row_idx, col_idx)
-                cell.text = str(content)
+                
+                original_format = ans.get("original_format")
+                if original_format:
+                    self._apply_cell_format(cell, original_format, str(content))
+                else:
+                    cell.text = str(content)
             except Exception as e:
                 print(f"Failed to fill cell index {ans.get('index')}: {e}")
 
@@ -292,13 +289,17 @@ class DocumentProcessor:
         for cell_info in restored_cells:
             idx = cell_info.get("index")
             content = cell_info.get("restored_content", "")
+            original_format = cell_info.get("original_format")
             found = False
             for table_index, table in enumerate(doc.tables):
                 for row_index, row in enumerate(table.rows):
                     for col_index, cell in enumerate(row.cells):
                         cell_text = cell.text.strip()
                         if cell_text.endswith(f"[{idx}]") or cell_text == f"[{idx}]":
-                            cell.text = content
+                            if original_format:
+                                self._apply_cell_format(cell, original_format, content)
+                            else:
+                                cell.text = content
                             found = True
                             break
                     if found:
@@ -348,7 +349,6 @@ class DocumentProcessor:
         return output_path
 
     def restore_cells_content_from_indexed(self, file_path: str, restored_cells: List[Dict[str, Any]]) -> str:
-        """统一的单元格内容恢复接口"""
         file_ext = os.path.splitext(file_path)[1].lower()
         
         if file_ext == '.docx':

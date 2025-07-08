@@ -4,7 +4,7 @@ class Config:
     # OpenAI API configuration
     OPENAI_API_KEY = 'sk-rfCIGhxrzcdsMV4jC17e406bE56c47CbA5416068A62318D3'
     OPENAI_BASE_URL = 'http://ipads.chat.gpt:3006/v1/'
-    OPENAI_MODEL = 'gpt-4o'
+    OPENAI_MODEL = 'gemini-2.5-pro-preview-06-05'
 
     # File path configuration
     INPUT_DIR = './examples'

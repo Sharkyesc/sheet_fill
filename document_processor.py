@@ -132,34 +132,11 @@ class DocumentProcessor:
         doc.save(output_path)
         return all_fields, output_path
 
-    def highlight_empty_fields_docx(self, file_path: str, empty_fields: List[Dict[str, Any]]) -> str:
-        doc = Document(file_path)
-        for field in empty_fields:
-            if field['type'] == 'table_cell':
-                table = doc.tables[field['table_index']]
-                cell = table.cell(field['row_index'], field['col_index'])
-                cell._tc.get_or_add_tcPr().append(self._create_shading_element())
-        base_name = os.path.splitext(os.path.basename(file_path))[0]
-        output_path = os.path.join(Config.MID_DIR, f"{base_name}_highlighted_{int(time.time())}.docx")
-        doc.save(output_path)
-        return output_path
-
     def _create_shading_element(self):
         """Yellow background shading element for Word cell."""
         shading = OxmlElement('w:shd')
         shading.set(qn('w:fill'), 'FFFF00')
         return shading
-
-    def list_docx_files(self) -> List[str]:
-        """List all .docx files from the input directory."""
-        input_dir = Config.INPUT_DIR
-        if not os.path.exists(input_dir):
-            return []
-        return [
-            os.path.join(input_dir, file)
-            for file in os.listdir(input_dir)
-            if file.lower().endswith('.docx')
-        ]
 
     def fill_document(self, file_path: str, field_answers: List[Dict[str, Any]]) -> str:
         """Fill document using field_answers that include table/row/col index."""

@@ -1,7 +1,8 @@
 import os
 import time
+import subprocess
+import shutil
 from typing import List, Dict, Any
-from docx2pdf import convert
 from pdf2image import convert_from_path
 from PIL import Image
 import base64
@@ -15,15 +16,29 @@ class PDFProcessor:
         os.makedirs(self.temp_dir, exist_ok=True)
 
     def docx_to_pdf(self, docx_path: str) -> str:
-        """Convert docx file to PDF"""
+        """Convert docx file to PDF using LibreOffice"""
+        base_name = os.path.splitext(os.path.basename(docx_path))[0]
+        pdf_path = os.path.join(self.temp_dir, f"{base_name}_{int(time.time())}.pdf")
+        
+        print(f"Converting {docx_path} to PDF using LibreOffice...")
+        
         try:
-            base_name = os.path.splitext(os.path.basename(docx_path))[0]
-            pdf_path = os.path.join(self.temp_dir, f"{base_name}_{int(time.time())}.pdf")
+            subprocess.run([
+                r'C:\Program Files\LibreOffice\program\soffice.exe', 
+                '--headless', 
+                '--convert-to', 'pdf', 
+                docx_path, 
+                '--outdir', self.temp_dir
+            ], check=True)
             
-            print(f"Converting {docx_path} to PDF...")
-            convert(docx_path, pdf_path)
-            print(f"PDF conversion completed: {pdf_path}")
-            return pdf_path
+            generated_pdf = os.path.join(self.temp_dir, f"{base_name}.pdf")
+            if os.path.exists(generated_pdf):
+                shutil.move(generated_pdf, pdf_path)
+                print(f"PDF conversion completed: {pdf_path}")
+                return pdf_path
+            else:
+                raise Exception("LibreOffice did not generate the expected PDF file")
+                
         except Exception as e:
             print(f"PDF conversion failed: {e}")
             raise
@@ -75,4 +90,41 @@ class PDFProcessor:
                 os.remove(pdf_path)
                 print(f"Temporary PDF file deleted: {pdf_path}")
         except Exception as e:
-            print(f"Failed to clean up temporary files: {e}") 
+            print(f"Failed to clean up temporary files: {e}")
+
+    def extract_text_from_pdf(self, pdf_path: str) -> str:
+        """
+        Extract text content from PDF file
+        Args:
+            pdf_path: PDF file path
+        Returns:
+            Extracted text content
+        """
+        if not os.path.exists(pdf_path):
+            print(f"PDF file not found: {pdf_path}")
+            return ""
+        
+        try:
+            doc = fitz.open(pdf_path)
+            text_content = ""
+            
+            for page_num in range(len(doc)):
+                page = doc[page_num]
+                page_text = page.get_text()
+                if page_text.strip():
+                    text_content += f"\n--- Page {page_num + 1} ---\n"
+                    text_content += page_text.strip()
+                    text_content += "\n"
+            
+            doc.close()
+            
+            if text_content.strip():
+                print(f"Successfully extracted text from PDF, total {len(doc)} pages")
+                return text_content.strip()
+            else:
+                print("No extractable text content found in PDF file")
+                return ""
+                
+        except Exception as e:
+            print(f"Failed to extract text from PDF: {e}")
+            return "" 

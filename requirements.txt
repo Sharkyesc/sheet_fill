@@ -9,7 +9,8 @@ sentence-transformers
 faiss-cpu
 numpy
 scikit-learn
-docx2pdf
 pdf2image
 Pillow
 PyMuPDF
+psutil
+matplotlib

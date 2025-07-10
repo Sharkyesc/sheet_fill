@@ -245,8 +245,7 @@ class DocumentProcessor:
 
         original_filename = os.path.basename(file_path)
         name_without_ext = original_filename.split("_numbered")[0].split("_highlighted")[0].split("_restored")[0].replace(".docx", "")
-        timestamp = int(time.time())
-        filled_filename = f"{name_without_ext}_filled_{timestamp}.docx"
+        filled_filename = f"{name_without_ext}.docx"
         filled_path = os.path.join(Config.OUTPUT_DIR, filled_filename)
         doc.save(filled_path)
         return filled_path
@@ -278,8 +277,7 @@ class DocumentProcessor:
         original_filename = os.path.basename(file_path)
         name_without_ext = original_filename.split("_numbered")[0].split("_highlighted")[0].split("_restored")[0]
         name_without_ext = os.path.splitext(name_without_ext)[0]
-        timestamp = int(time.time())
-        filled_filename = f"{name_without_ext}_filled_{timestamp}.xlsx"
+        filled_filename = f"{name_without_ext}.xlsx"
         filled_path = os.path.join(Config.OUTPUT_DIR, filled_filename)
         wb.save(filled_path)
         wb.close()

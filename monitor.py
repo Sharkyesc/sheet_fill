@@ -178,56 +178,43 @@ class SystemMonitor:
             memory_used = self.data['memory_used_mb']
             memory_available = self.data['memory_available_mb']
         
+        if len(timestamps) > 0:
+            start_time = timestamps[0]
+            seconds = [(ts - start_time).total_seconds() for ts in timestamps]
+        else:
+            seconds = []
+        
         # Create chart
         fig, axes = plt.subplots(1, 3, figsize=(18, 6))
         fig.suptitle('System Resource Monitoring Report', fontsize=16, fontweight='bold')
         
         # 1. CPU usage
-        axes[0].plot(timestamps, cpu_data, 'b-', linewidth=2, label='CPU Usage')
+        axes[0].plot(seconds, cpu_data, 'b-', linewidth=2, label='CPU Usage')
         axes[0].set_title('CPU Usage (%)')
         axes[0].set_ylabel('Usage (%)')
+        axes[0].set_xlabel('Running time (s)')
         axes[0].grid(True, alpha=0.3)
         axes[0].legend()
         
-        # Set x-axis format
-        if len(timestamps) > 1:
-            time_diff = timestamps[-1] - timestamps[0]
-            if time_diff > timedelta(hours=1):
-                axes[0].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-            else:
-                axes[0].xaxis.set_major_formatter(mdates.DateFormatter('%M:%S'))
-        
         # 2. Memory usage
-        axes[1].plot(timestamps, memory_data, 'r-', linewidth=2, label='Memory Usage')
+        axes[1].plot(seconds, memory_data, 'r-', linewidth=2, label='Memory Usage')
         axes[1].set_title('Memory Usage (%)')
         axes[1].set_ylabel('Usage (%)')
+        axes[1].set_xlabel('Running time (s)')
         axes[1].grid(True, alpha=0.3)
         axes[1].legend()
         
-        if len(timestamps) > 1:
-            if time_diff > timedelta(hours=1):
-                axes[1].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-            else:
-                axes[1].xaxis.set_major_formatter(mdates.DateFormatter('%M:%S'))
-        
         # 3. Memory usage (MB)
-        axes[2].plot(timestamps, memory_used, 'g-', linewidth=2, label='Used Memory')
-        axes[2].plot(timestamps, memory_available, 'orange', linewidth=2, label='Available Memory')
+        axes[2].plot(seconds, memory_used, 'g-', linewidth=2, label='Used Memory')
+        axes[2].plot(seconds, memory_available, 'orange', linewidth=2, label='Available Memory')
         axes[2].set_title('Memory Usage (MB)')
         axes[2].set_ylabel('Memory (MB)')
+        axes[2].set_xlabel('Running time (s)')
         axes[2].grid(True, alpha=0.3)
         axes[2].legend()
         
-        if len(timestamps) > 1:
-            if time_diff > timedelta(hours=1):
-                axes[2].xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-            else:
-                axes[2].xaxis.set_major_formatter(mdates.DateFormatter('%M:%S'))
-        
-        # Adjust layout
         plt.tight_layout()
         
-        # Save chart
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
         plt.close()
         

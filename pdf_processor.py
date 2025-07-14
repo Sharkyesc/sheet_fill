@@ -13,6 +13,7 @@ import openpyxl
 from openpyxl.drawing.image import Image as OpenpyxlImage
 import win32com.client as win32
 import pythoncom
+import pytesseract
 
 class PDFProcessor:
     def __init__(self):
@@ -196,37 +197,43 @@ class PDFProcessor:
 
     def extract_text_from_pdf(self, pdf_path: str) -> str:
         """
-        Extract text content from PDF file
-        Args:
-            pdf_path: PDF file path
-        Returns:
-            Extracted text content
+        Each page first text extraction, then the whole page OCR, merge the results to return.
+        修正：每一页处理单独try，doc关闭在finally，避免document closed异常，并打印每页异常信息。
         """
         if not os.path.exists(pdf_path):
             print(f"PDF file not found: {pdf_path}")
             return ""
-        
+        all_content = ""
+        doc = None
         try:
             doc = fitz.open(pdf_path)
-            text_content = ""
-            
             for page_num in range(len(doc)):
-                page = doc[page_num]
-                page_text = page.get_text()
-                if page_text.strip():
-                    text_content += f"\n--- Page {page_num + 1} ---\n"
-                    text_content += page_text.strip()
-                    text_content += "\n"
-            
-            doc.close()
-            
-            if text_content.strip():
-                print(f"Successfully extracted text from PDF, total {len(doc)} pages")
-                return text_content.strip()
-            else:
-                print("No extractable text content found in PDF file")
-                return ""
-                
+                try:
+                    page = doc[page_num]
+                    # text extraction
+                    page_text = page.get_text()
+                    # OCR
+                    pix = page.get_pixmap()
+                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                    page_ocr = pytesseract.image_to_string(img, lang="chi_sim+eng")
+                    # merge
+                    page_content = f"\n--- Page {page_num + 1} ---\n"
+                    if page_text.strip():
+                        page_content += "[text]\n" + page_text.strip() + "\n"
+                    if page_ocr.strip():
+                        page_content += "[OCR]\n" + page_ocr.strip() + "\n"
+                    all_content += page_content
+                except Exception as e:
+                    print(f"Error processing page {page_num+1}: {e}")
+                    continue
+            print(f"Successfully extracted text from PDF (text+OCR), total {len(doc)} pages")
+            return all_content.strip() if all_content.strip() else ""
         except Exception as e:
             print(f"Failed to extract text from PDF: {e}")
-            return "" 
+            return ""
+        finally:
+            if doc is not None:
+                try:
+                    doc.close()
+                except Exception:
+                    pass 

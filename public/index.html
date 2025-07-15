@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>表格填写系统</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            padding: 40px;
+        }
+
+        .upload-section {
+            margin-bottom: 30px;
+            padding: 25px;
+            border: 2px dashed #e0e0e0;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .upload-section:hover {
+            border-color: #4facfe;
+            background-color: #f8fffe;
+        }
+
+        .upload-section h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+            width: 100%;
+        }
+
+        .file-input {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .file-input-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .file-input-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .file-list {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 8px;
+            min-height: 40px;
+        }
+
+        .file-item {
+            background: white;
+            margin: 5px 0;
+            padding: 8px 12px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .file-name {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .file-size {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .process-section {
+            text-align: center;
+            margin: 30px 0;
+        }
+
+        .process-button {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+            color: white;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(17, 153, 142, 0.3);
+        }
+
+        .process-button:hover:not(:disabled) {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(17, 153, 142, 0.4);
+        }
+
+        .process-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .result-section {
+            margin-top: 30px;
+            padding: 25px;
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            border-radius: 10px;
+            display: none;
+        }
+
+        .result-section h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .download-button {
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+            color: #333;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .download-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 154, 158, 0.4);
+        }
+
+        .status-message {
+            margin: 15px 0;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .status-success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status-info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4facfe;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .clear-button {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin-left: 10px;
+        }
+
+        .clear-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 10px rgba(255, 107, 107, 0.3);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📋 表格填写系统</h1>
+            <p>上传资料文件和表格文件，自动填写您的表格</p>
+        </div>
+
+        <div class="main-content">
+            <!-- 资料文件上传区域 -->
+            <div class="upload-section">
+                <h3>📄 上传资料文件 (可多个)</h3>
+                <div class="file-input-wrapper">
+                    <input type="file" id="materialFiles" class="file-input" multiple
+                        accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png">
+                    <button class="file-input-button" onclick="document.getElementById('materialFiles').click()">
+                        选择资料文件
+                    </button>
+                </div>
+                <div id="materialFileList" class="file-list">
+                    <div style="color: #666; text-align: center;">暂无资料文件</div>
+                </div>
+            </div>
+
+            <!-- 表格文件上传区域 -->
+            <div class="upload-section">
+                <h3>📊 上传表格文件 (仅一个)</h3>
+                <div class="file-input-wrapper">
+                    <input type="file" id="tableFile" class="file-input" accept=".xlsx,.xls,.csv,.doc,.docx">
+                    <button class="file-input-button" onclick="document.getElementById('tableFile').click()">
+                        选择表格文件
+                    </button>
+                </div>
+                <div id="tableFileList" class="file-list">
+                    <div style="color: #666; text-align: center;">暂无表格文件</div>
+                </div>
+            </div>
+
+            <!-- 处理按钮 -->
+            <div class="process-section">
+                <button id="processButton" class="process-button" onclick="processFiles()" disabled>
+                    🚀 开始填写表格
+                </button>
+                <button class="clear-button" onclick="clearAllFiles()">
+                    🗑️ 清空文件
+                </button>
+            </div>
+
+            <!-- 加载状态 -->
+            <div id="loading" class="loading">
+                <div class="spinner"></div>
+                <div>正在处理文件，请稍候...</div>
+            </div>
+
+            <!-- 状态消息 -->
+            <div id="statusMessage"></div>
+
+            <!-- 结果区域 -->
+            <div id="resultSection" class="result-section">
+                <h3>✅ 处理完成！</h3>
+                <p>您的表格已经填写完成，点击下面的按钮下载结果文件。</p>
+                <div style="margin-top: 15px;">
+                    <a id="downloadButton" class="download-button" href="#" download>
+                        📥 下载填写完成的表格
+                    </a>
+                </div>
+                <div id="resultDetails" style="margin-top: 15px; font-size: 0.9rem; color: #666;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8000';
+        let materialFiles = [];
+        let tableFile = null;
+
+        // 文件大小格式化
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // 显示状态消息
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('statusMessage');
+            statusDiv.innerHTML = `<div class="status-message status-${type}">${message}</div>`;
+            setTimeout(() => {
+                statusDiv.innerHTML = '';
+            }, 5000);
+        }
+
+        // 更新处理按钮状态
+        function updateProcessButton() {
+            const processButton = document.getElementById('processButton');
+            const hasTableFile = tableFile !== null;
+            const hasMaterialFiles = materialFiles.length > 0;
+
+            processButton.disabled = !(hasTableFile && hasMaterialFiles);
+
+            if (!hasTableFile) {
+                processButton.textContent = '请先上传表格文件';
+            } else if (!hasMaterialFiles) {
+                processButton.textContent = '请先上传资料文件';
+            } else {
+                processButton.textContent = '🚀 开始填写表格';
+            }
+        }
+
+        // 资料文件上传处理
+        document.getElementById('materialFiles').addEventListener('change', async function (e) {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+
+            const formData = new FormData();
+            files.forEach(file => {
+                formData.append('files', file);
+            });
+
+            try {
+                showStatus('正在上传资料文件...', 'info');
+                const response = await fetch(`${API_BASE_URL}/upload/material`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                showStatus(result.message, 'success');
+
+                // 更新文件列表
+                materialFiles = materialFiles.concat(result.files);
+                updateMaterialFileList();
+                updateProcessButton();
+            } catch (error) {
+                console.error('Upload error:', error);
+                showStatus('上传资料文件失败: ' + error.message, 'error');
+            }
+        });
+
+        // 表格文件上传处理
+        document.getElementById('tableFile').addEventListener('change', async function (e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                showStatus('正在上传表格文件...', 'info');
+                const response = await fetch(`${API_BASE_URL}/upload/table`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                showStatus(result.message, 'success');
+
+                // 更新表格文件信息
+                tableFile = result.file;
+                updateTableFileList();
+                updateProcessButton();
+            } catch (error) {
+                console.error('Upload error:', error);
+                showStatus('上传表格文件失败: ' + error.message, 'error');
+            }
+        });
+
+        // 更新资料文件列表显示
+        function updateMaterialFileList() {
+            const listDiv = document.getElementById('materialFileList');
+            if (materialFiles.length === 0) {
+                listDiv.innerHTML = '<div style="color: #666; text-align: center;">暂无资料文件</div>';
+                return;
+            }
+
+            listDiv.innerHTML = materialFiles.map(file => `
+                <div class="file-item">
+                    <span class="file-name">${file.original_name}</span>
+                    <span class="file-size">${formatFileSize(file.size)}</span>
+                </div>
+            `).join('');
+        }
+
+        // 更新表格文件列表显示
+        function updateTableFileList() {
+            const listDiv = document.getElementById('tableFileList');
+            if (!tableFile) {
+                listDiv.innerHTML = '<div style="color: #666; text-align: center;">暂无表格文件</div>';
+                return;
+            }
+
+            listDiv.innerHTML = `
+                <div class="file-item">
+                    <span class="file-name">${tableFile.original_name}</span>
+                    <span class="file-size">${formatFileSize(tableFile.size)}</span>
+                </div>
+            `;
+        }
+
+        // 处理文件
+        async function processFiles() {
+            const loadingDiv = document.getElementById('loading');
+            const resultDiv = document.getElementById('resultSection');
+            const processButton = document.getElementById('processButton');
+
+            try {
+                // 显示加载状态
+                loadingDiv.style.display = 'block';
+                resultDiv.style.display = 'none';
+                processButton.disabled = true;
+                showStatus('正在处理文件，请稍候...', 'info');
+
+                const response = await fetch(`${API_BASE_URL}/process`, {
+                    method: 'POST'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+
+                // 隐藏加载状态
+                loadingDiv.style.display = 'none';
+
+                // 显示结果
+                showStatus(result.message, 'success');
+                const downloadButton = document.getElementById('downloadButton');
+                downloadButton.href = `${API_BASE_URL}${result.download_url}`;
+
+                // 显示处理详情
+                const resultDetails = document.getElementById('resultDetails');
+                if (result.result && result.result.output_filename) {
+                    resultDetails.innerHTML = `<p>文件已处理完成: ${result.result.output_filename}</p>`;
+                } else {
+                    resultDetails.innerHTML = `<p>文件已处理完成</p>`;
+                }
+
+                resultDiv.style.display = 'block';
+            } catch (error) {
+                console.error('Process error:', error);
+                loadingDiv.style.display = 'none';
+                showStatus('处理失败: ' + error.message, 'error');
+            } finally {
+                processButton.disabled = false;
+                updateProcessButton();
+            }
+        }
+
+        // 清空所有文件
+        async function clearAllFiles() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/clear`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                showStatus(result.message, 'success');
+
+                // 重置前端状态
+                materialFiles = [];
+                tableFile = null;
+
+                // 清空文件输入
+                document.getElementById('materialFiles').value = '';
+                document.getElementById('tableFile').value = '';
+
+                // 更新显示
+                updateMaterialFileList();
+                updateTableFileList();
+                updateProcessButton();
+
+                // 隐藏结果区域
+                document.getElementById('resultSection').style.display = 'none';
+            } catch (error) {
+                console.error('Clear error:', error);
+                showStatus('清空失败: ' + error.message, 'error');
+            }
+        }
+
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', function () {
+            updateProcessButton();
+        });
+    </script>
+</body>
+
+</html>

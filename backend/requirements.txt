@@ -16,3 +16,4 @@ psutil
 matplotlib
 pywin32
 pytesseract
+reportlab

@@ -2,6 +2,7 @@
 /mid_docs
 /temp
 /output
-/monitor_output
-/examples
 /uploads
+
+/backend/__pycache__/
+/backend/monitor_output/

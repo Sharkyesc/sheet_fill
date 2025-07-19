@@ -30,13 +30,15 @@ class PDFProcessor:
         pdf_path = self.to_cmd_path(pdf_path)
         docx_path_cmd = self.to_cmd_path(docx_path)
         temp_dir_cmd = self.to_cmd_path(self.temp_dir)
-        soffice_path = self.to_cmd_path(os.path.join('C:', 'Program Files', 'LibreOffice', 'program', 'soffice.exe'))
+        # soffice_path = self.to_cmd_path(os.path.join('C:', 'Program Files', 'LibreOffice', 'program', 'soffice.exe'))
+        soffice_path = self.to_cmd_path(os.path.join('D:', 'LibreOffice', 'program', 'soffice.exe')) # zys
         
         print(f"Converting {docx_path} to PDF using LibreOffice...")
         
         try:
             subprocess.run([
-                soffice_path,
+                # soffice_path,
+                r"D:\LibreOffice\program\soffice.exe",
                 '--headless',
                 '--convert-to', 'pdf',
                 docx_path_cmd,
@@ -141,12 +143,14 @@ class PDFProcessor:
         """Convert document to PDF - supports both Word and Excel"""
         file_ext = os.path.splitext(file_path)[1].lower()
         
-        if file_ext == '.docx':
-            return self.docx_to_pdf(file_path)
-        elif file_ext in ['.xlsx', '.xls']:
-            return self.excel_to_pdf(file_path)
-        else:
-            raise ValueError(f"Unsupported file format for PDF conversion: {file_ext}")
+        return self.docx_to_pdf(file_path)
+
+        # if file_ext == '.docx':
+        #     return self.docx_to_pdf(file_path)
+        # elif file_ext in ['.xlsx', '.xls']:
+        #     return self.excel_to_pdf(file_path)
+        # else:
+        #     raise ValueError(f"Unsupported file format for PDF conversion: {file_ext}")
 
     def pdf_to_images(self, pdf_path: str, dpi: int = 200) -> List[Dict[str, Any]]:
         """Use PyMuPDF to convert each page of PDF to an image"""
